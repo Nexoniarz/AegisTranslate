@@ -86,6 +86,7 @@ async function load(kind, { allowDownload = false } = {}) {
   }
 
   await unload(kind);
+  progress[kind] = { loaded: 0, total: 0 };
   const opts = { dtype: spec.dtype, device, progress_callback: progressTracker(kind) };
   env.allowRemoteModels = allowDownload;
   try {
@@ -217,6 +218,14 @@ async function translateImage(payload) {
 }
 
 // --- Messaging ---------------------------------------------------------------
+let overlayCss = null;
+function getOverlayCss() {
+  overlayCss ??= Promise.all(
+    ["niveus-shadow.css", "overlay.css"].map((f) => fetch(browser.runtime.getURL(f)).then((r) => r.text()))
+  ).then((parts) => parts.join("\n"));
+  return overlayCss;
+}
+
 async function status() {
   const settings = await getSettings();
   return {
@@ -232,6 +241,8 @@ browser.runtime.onMessage.addListener(async (msg) => {
   try {
     const settings = await getSettings();
     switch (msg.type) {
+      case "overlayCss":
+        return getOverlayCss();
       case "status":
         return { ok: true, ...(await status()) };
       case "download":

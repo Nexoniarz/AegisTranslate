@@ -1,0 +1,40 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: firefox
+    attributes:
+      label: Firefox version and OS
+      placeholder: Firefox 145, Fedora 43
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+      description: Shown at the top of the AegisTranslate popup.
+      placeholder: AMD Radeon RX 7800 XT
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model
+      options:
+        - Qwen3 1.7B
+        - Qwen3 4B
+        - Qwen2-VL 2B
+        - Qwen3-VL 2B
+        - Not model-related
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      description: "`about:debugging` → This Firefox → AegisTranslate → Inspect → Console."
+      render: text

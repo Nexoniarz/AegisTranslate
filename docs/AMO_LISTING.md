@@ -1,0 +1,45 @@
+# addons.mozilla.org listing (draft)
+
+**Name:** AegisTranslate
+
+**Summary** (≤ 250 characters):
+Private, on-device translation for Firefox, including text inside images. Qwen models run on
+your GPU through WebGPU; nothing you read is sent to a server.
+
+**Categories:** Language Support · Privacy & Security
+
+**Description:**
+
+Translate web pages and the text inside images (manga, comics, infographics, scans) without
+sending anything to a translation service.
+
+- Select text and right-click → Translate selection, or press Alt+Shift+T.
+- Hover an image and click Translate to read its speech bubbles, captions and signs.
+- Choose your models: a text model (Qwen3 1.7B or 4B) and an optional vision model.
+- One switch turns it off and frees GPU memory.
+
+Everything runs locally through WebGPU. The only network requests are model downloads from
+Hugging Face, which you start yourself. Requires Firefox 142+ with WebGPU and 2–4 GB of free
+VRAM.
+
+Open source under Apache 2.0: https://github.com/Nexoniarz/AegisTranslate
+
+**Privacy policy:** paste `PRIVACY.md`.
+
+## Notes for reviewers
+
+The package contains bundled, minified code. To reproduce it:
+
+```bash
+npm ci
+npm run build     # output in dist/, identical to the submitted package
+```
+
+- Node 22, npm 10. The build is `build.mjs` (esbuild).
+- `background.js` bundles Transformers.js (Apache-2.0) and ONNX Runtime Web (MIT).
+- `vendor/ort-wasm-simd-threaded.asyncify.{mjs,wasm}` are copied unchanged from
+  `node_modules/onnxruntime-web/dist/`. The `new Function` lint warning comes from this
+  Emscripten-generated file.
+- `vendor/niveus/` is the Niveus CSS design system, unchanged.
+- No remote code: `wasmPaths` points at the packaged files, and model downloads contain
+  weights only (ONNX and JSON).

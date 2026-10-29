@@ -11,15 +11,20 @@
     if (!settings.enabled) teardown();
   });
 
+  // Styles are handed over by the background page and adopted into a closed
+  // shadow root, so no extension file is ever exposed to the page.
+  const sheet = browser.runtime.sendMessage({ type: "overlayCss" }).then((css) => {
+    const s = new CSSStyleSheet();
+    s.replaceSync(css);
+    return s;
+  });
+
   function ensureRoot() {
     if (root) return;
     host = document.createElement("aegis-translate");
     host.style.cssText = "all: initial; position: absolute; top: 0; left: 0; z-index: 2147483647;";
     root = host.attachShadow({ mode: "closed" });
-    const style = document.createElement("link");
-    style.rel = "stylesheet";
-    style.href = browser.runtime.getURL("overlay.css");
-    root.append(style);
+    sheet.then((s) => { if (root) root.adoptedStyleSheets = [s]; });
     document.documentElement.append(host);
   }
 
@@ -42,26 +47,38 @@
   // --- Result card -----------------------------------------------------------
   function openCard(anchorRect, title) {
     ensureRoot();
-    const card = el("div", "card");
-    const head = el("div", "head");
-    head.append(el("span", "title", title));
-    const close = el("button", "close", "×");
-    close.title = "Close";
+    const card = el("section", "nv-card nv-card--floating aegis-card");
+    card.setAttribute("aria-label", title);
+    const head = el("header", "nv-card__header");
+    const heading = el("div", "aegis-heading");
+    heading.append(el("span", "nv-overline nv-text-secondary", title));
+    const badge = el("span", "nv-badge nv-badge--accent");
+    badge.append(el("span", "nv-badge__dot"), el("span", null, "On-device"));
+    heading.append(badge);
+    const close = el("button", "nv-button nv-button--ghost nv-button--icon nv-button--sm", "×");
+    close.setAttribute("aria-label", "Close");
     close.addEventListener("click", () => card.remove());
-    head.append(close);
-    const body = el("div", "body");
-    body.append(el("div", "status", "Translating locally…"));
+    head.append(heading, close);
+    const body = el("div", "nv-card__body aegis-body");
+    body.setAttribute("aria-live", "polite");
+    body.setAttribute("aria-busy", "true");
+    for (let i = 0; i < 3; i++) body.append(el("div", "nv-skeleton nv-skeleton--text"));
     card.append(head, body);
 
     const r = pageRect(anchorRect);
-    card.style.top = `${r.bottom + 6}px`;
-    card.style.left = `${Math.max(8, Math.min(r.left, scrollX + innerWidth - 380))}px`;
+    card.style.top = `${r.bottom + 8}px`;
+    card.style.left = `${Math.max(8, Math.min(r.left, scrollX + innerWidth - 392))}px`;
     root.append(card);
     return body;
   }
 
+  function done(body, ...children) {
+    body.removeAttribute("aria-busy");
+    body.replaceChildren(...children);
+  }
+
   function showError(body, error) {
-    body.replaceChildren(el("div", "error", error));
+    done(body, el("p", "nv-body nv-text-danger", error));
   }
 
   // --- Text ------------------------------------------------------------------
@@ -73,7 +90,7 @@
     const body = openCard(sel.getRangeAt(0).getBoundingClientRect(), "Translation");
     const res = await browser.runtime.sendMessage({ type: "translateText", text });
     if (!res?.ok) return showError(body, res?.error ?? "Translation failed.");
-    body.replaceChildren(el("div", "translation", res.translation));
+    done(body, el("p", "nv-body aegis-translation", res.translation));
   }
 
   // --- Images ----------------------------------------------------------------
@@ -102,22 +119,22 @@
     const dataUrl = img ? grabPixels(img) : null;
     const res = await browser.runtime.sendMessage({ type: "translateImage", src, dataUrl });
     if (!res?.ok) return showError(body, res?.error ?? "Translation failed.");
-    if (!res.lines.length) return body.replaceChildren(el("div", "status", "No text found in this image."));
-    const list = el("ol", "lines");
+    if (!res.lines.length) return done(body, el("p", "nv-body nv-text-secondary", "No text found in this image."));
+    const list = el("ol", "aegis-lines");
     for (const { original, translation } of res.lines) {
       const li = el("li");
-      if (settings.showOriginal && original) li.append(el("div", "original", original));
-      li.append(el("div", "translation", translation));
+      if (settings.showOriginal && original) li.append(el("div", "nv-caption nv-text-secondary", original));
+      li.append(el("div", "nv-body aegis-translation", translation));
       list.append(li);
     }
-    body.replaceChildren(list);
+    done(body, list);
   }
 
   // --- Hover chip ------------------------------------------------------------
   function placeChip(img) {
     ensureRoot();
     if (!chip) {
-      chip = el("button", "chip", "Translate");
+      chip = el("button", "nv-button nv-button--primary nv-button--sm nv-button--pill aegis-chip", "Translate");
       chip.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -127,9 +144,9 @@
     }
     chipTarget = img;
     const r = pageRect(img.getBoundingClientRect());
-    chip.style.top = `${r.top + 8}px`;
-    chip.style.left = `${r.left + r.width - 92}px`;
     chip.hidden = false;
+    chip.style.top = `${r.top + 8}px`;
+    chip.style.left = `${r.left + r.width - (chip.offsetWidth || 96) - 8}px`;
   }
 
   document.addEventListener(

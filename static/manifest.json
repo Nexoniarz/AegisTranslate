@@ -4,23 +4,57 @@
   "version": "0.1.0",
   "description": "Private, on-device translation of web text and image text. Models run locally on your GPU via WebGPU; nothing is sent to translation servers.",
   "author": "Nexoniarz",
+  "homepage_url": "https://github.com/Nexoniarz/AegisTranslate",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "aegistranslate@nexoniarz",
       "strict_min_version": "142.0",
-      "data_collection_permissions": { "required": ["none"] }
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
-  "permissions": ["storage", "menus", "unlimitedStorage", "<all_urls>"],
-  "background": { "page": "background.html", "persistent": true },
-  "content_scripts": [
-    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }
+  "permissions": [
+    "storage",
+    "menus",
+    "unlimitedStorage",
+    "<all_urls>"
   ],
-  "web_accessible_resources": ["overlay.css"],
-  "browser_action": { "default_popup": "popup.html", "default_title": "AegisTranslate" },
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "AegisTranslate",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "commands": {
     "translate-selection": {
-      "suggested_key": { "default": "Alt+Shift+T" },
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
       "description": "Translate the selected text"
     }
   },

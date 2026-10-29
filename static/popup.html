@@ -2,57 +2,87 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="vendor/niveus/dist/niveus.css">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <header>
-    <h1>AegisTranslate</h1>
-    <label class="switch" title="Turn translation on or off">
-      <input type="checkbox" id="enabled">
-      <span></span>
-    </label>
+  <header class="top">
+    <img class="logo" src="icons/icon-48.png" alt="" width="32" height="32">
+    <div class="brand">
+      <h1 class="nv-title">AegisTranslate</h1>
+      <span class="nv-caption nv-text-secondary" id="gpu"></span>
+    </div>
+    <span class="nv-badge" id="statePill"><span class="nv-badge__dot"></span><span>Off</span></span>
+    <input class="nv-switch" type="checkbox" id="enabled" aria-label="Turn AegisTranslate on or off">
   </header>
 
-  <p class="gpu" id="gpu"></p>
-
-  <section>
-    <label>Translate into
-      <select id="targetLang"></select>
-    </label>
-  </section>
-
-  <section>
-    <h2>Text model</h2>
-    <select id="textModel"></select>
-    <div class="model-row">
-      <span class="state" id="textState"></span>
-      <button id="textDownload">Download</button>
-      <button id="textForget" class="secondary">Delete</button>
-    </div>
-    <progress id="textProgress" hidden></progress>
-    <p class="hint">Select text, then right-click → <b>Translate selection</b> or press <kbd>Alt+Shift+T</kbd>.</p>
-  </section>
-
-  <section>
-    <h2>
-      <label class="inline"><input type="checkbox" id="visionEnabled"> Image translation</label>
-    </h2>
-    <div id="visionBox">
-      <select id="visionModel"></select>
-      <div class="model-row">
-        <span class="state" id="visionState"></span>
-        <button id="visionDownload">Download</button>
-        <button id="visionForget" class="secondary">Delete</button>
+  <main class="nv-stack">
+    <section class="nv-card">
+      <div class="nv-card__body nv-field">
+        <label class="nv-field__label" for="targetLang">Translate into</label>
+        <div class="nv-select">
+          <select class="nv-input" id="targetLang"></select>
+        </div>
       </div>
-      <progress id="visionProgress" hidden></progress>
-      <label class="inline"><input type="checkbox" id="hoverChip"> Show "Translate" button on images</label>
-      <label class="inline"><input type="checkbox" id="showOriginal"> Show original text</label>
-    </div>
-  </section>
+    </section>
 
-  <p class="hint privacy">Translation runs entirely on this device. The only network requests are model
-    downloads from Hugging Face, made when you press Download.</p>
-  <p class="error" id="error" hidden></p>
+    <section class="nv-card" aria-labelledby="textHeading">
+      <header class="nv-card__header card-head">
+        <h2 class="nv-label" id="textHeading">Text model</h2>
+        <span class="nv-badge" id="textState"></span>
+      </header>
+      <div class="nv-card__body nv-stack nv-stack--tight">
+      <div class="nv-select">
+        <select class="nv-input" id="textModel" aria-labelledby="textHeading"></select>
+      </div>
+      <div class="progress" id="textProgress" hidden><div class="progress__fill"></div></div>
+      <div class="actions">
+        <span class="nv-caption nv-text-tertiary" id="textDetail"></span>
+        <button class="nv-button nv-button--ghost nv-button--sm" id="textForget">Delete</button>
+        <button class="nv-button nv-button--primary nv-button--sm" id="textDownload">Download</button>
+      </div>
+      <p class="nv-caption nv-text-secondary">
+        Select text, then right-click → <b>Translate selection</b>, or press <kbd class="nv-code">Alt+Shift+T</kbd>.
+      </p>
+      </div>
+    </section>
+
+    <section class="nv-card" aria-labelledby="visionHeading">
+      <header class="nv-card__header card-head">
+        <h2 class="nv-label" id="visionHeading">Image translation</h2>
+        <span class="head-end">
+          <span class="nv-badge" id="visionState"></span>
+          <input class="nv-switch" type="checkbox" id="visionEnabled" aria-label="Turn image translation on or off">
+        </span>
+      </header>
+      <div class="nv-card__body nv-stack nv-stack--tight">
+      <p class="nv-caption nv-text-secondary" id="visionOff">
+        Reads speech bubbles, captions and signs. Uses a separate vision model.
+      </p>
+      <div class="nv-stack nv-stack--tight" id="visionBox">
+        <div class="nv-select">
+          <select class="nv-input" id="visionModel" aria-labelledby="visionHeading"></select>
+        </div>
+        <div class="progress" id="visionProgress" hidden><div class="progress__fill"></div></div>
+        <div class="actions">
+          <span class="nv-caption nv-text-tertiary" id="visionDetail"></span>
+          <button class="nv-button nv-button--ghost nv-button--sm" id="visionForget">Delete</button>
+          <button class="nv-button nv-button--primary nv-button--sm" id="visionDownload">Download</button>
+        </div>
+        <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="hoverChip"> Show a Translate button on images</label>
+        <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="showOriginal"> Show the original text</label>
+      </div>
+      </div>
+    </section>
+
+    <p class="nv-caption nv-text-danger" id="error" role="alert" hidden></p>
+  </main>
+
+  <footer class="nv-caption nv-text-tertiary">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 13.5 3.5v4c0 3.2-2.3 5.9-5.5 7-3.2-1.1-5.5-3.8-5.5-7v-4z"/></svg>
+    <span>Runs on this device. Only model downloads use the network.</span>
+    <span class="version" id="version"></span>
+  </footer>
 
   <script type="module" src="popup.js"></script>
 </body>
