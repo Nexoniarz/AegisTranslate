@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>AegisTranslate</h1>
+    <label class="switch" title="Turn translation on or off">
+      <input type="checkbox" id="enabled">
+      <span></span>
+    </label>
+  </header>
+
+  <p class="gpu" id="gpu"></p>
+
+  <section>
+    <label>Translate into
+      <select id="targetLang"></select>
+    </label>
+  </section>
+
+  <section>
+    <h2>Text model</h2>
+    <select id="textModel"></select>
+    <div class="model-row">
+      <span class="state" id="textState"></span>
+      <button id="textDownload">Download</button>
+      <button id="textForget" class="secondary">Delete</button>
+    </div>
+    <progress id="textProgress" hidden></progress>
+    <p class="hint">Select text, then right-click → <b>Translate selection</b> or press <kbd>Alt+Shift+T</kbd>.</p>
+  </section>
+
+  <section>
+    <h2>
+      <label class="inline"><input type="checkbox" id="visionEnabled"> Image translation</label>
+    </h2>
+    <div id="visionBox">
+      <select id="visionModel"></select>
+      <div class="model-row">
+        <span class="state" id="visionState"></span>
+        <button id="visionDownload">Download</button>
+        <button id="visionForget" class="secondary">Delete</button>
+      </div>
+      <progress id="visionProgress" hidden></progress>
+      <label class="inline"><input type="checkbox" id="hoverChip"> Show "Translate" button on images</label>
+      <label class="inline"><input type="checkbox" id="showOriginal"> Show original text</label>
+    </div>
+  </section>
+
+  <p class="hint privacy">Translation runs entirely on this device. The only network requests are model
+    downloads from Hugging Face, made when you press Download.</p>
+  <p class="error" id="error" hidden></p>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

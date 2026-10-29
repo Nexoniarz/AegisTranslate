@@ -1,0 +1,59 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --accent: #1f6feb;
+  --warn: #9a6700;
+  --error: #cf222e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161b22;
+    --fg: #e6edf3;
+    --muted: #8d96a0;
+    --border: #30363d;
+    --accent: #4493f8;
+    --warn: #d29922;
+    --error: #ff7b72;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  width: 340px;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+header { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 16px; margin: 0; }
+h2 { font-size: 13px; margin: 0 0 6px; }
+section { padding: 10px 0; border-top: 1px solid var(--border); }
+select { width: 100%; margin-top: 4px; padding: 4px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; }
+label.inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: normal; }
+h2 label.inline { margin: 0; font-weight: 600; }
+
+.model-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.state { flex: 1; color: var(--muted); }
+button { padding: 4px 10px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+button.secondary { background: none; color: var(--muted); border: 1px solid var(--border); }
+button:disabled { opacity: 0.6; cursor: wait; }
+progress { width: 100%; margin-top: 6px; }
+
+.gpu { margin: 6px 0 4px; color: var(--muted); font-size: 12px; }
+.gpu.warn { color: var(--warn); }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.privacy { border-top: 1px solid var(--border); padding-top: 8px; }
+.error { color: var(--error); }
+kbd { font-size: 11px; padding: 0 3px; border: 1px solid var(--border); border-radius: 3px; }
+
+.switch { position: relative; width: 38px; height: 22px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: background 0.15s; cursor: pointer; }
+.switch span::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::before { transform: translateX(16px); }

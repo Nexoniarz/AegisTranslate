@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "name": "AegisTranslate",
+  "version": "0.1.0",
+  "description": "Private, on-device translation of web text and image text. Models run locally on your GPU via WebGPU; nothing is sent to translation servers.",
+  "author": "Nexoniarz",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "aegistranslate@nexoniarz",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "permissions": ["storage", "menus", "unlimitedStorage", "<all_urls>"],
+  "background": { "page": "background.html", "persistent": true },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }
+  ],
+  "web_accessible_resources": ["overlay.css"],
+  "browser_action": { "default_popup": "popup.html", "default_title": "AegisTranslate" },
+  "commands": {
+    "translate-selection": {
+      "suggested_key": { "default": "Alt+Shift+T" },
+      "description": "Translate the selected text"
+    }
+  },
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+}
