@@ -139,6 +139,7 @@ It is not recommended for Tor Browser.
 
 ```bash
 npm run build     # bundle into dist/
+npm test          # unit tests
 npm run lint      # build, then run web-ext lint
 npm start         # build, then launch Firefox with the extension
 npm run package   # build an .xpi/.zip in web-ext-artifacts/
@@ -150,6 +151,7 @@ src/
   content.js      hover button and result cards
   popup.js        settings UI
   models.js       model catalog and defaults
+  vendor/         build-time patches that let ONNX Runtime run without eval
 static/           manifest, HTML, CSS, icons
 vendor/niveus/    Niveus design system (CSS + fonts)
 assets/           logo and screenshots

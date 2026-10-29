@@ -15,10 +15,12 @@ env.allowLocalModels = false;
 env.allowRemoteModels = false;
 env.useBrowserCache = true;
 env.useWasmCache = false;
+// The WASM glue is bundled (see src/vendor/ort-patches.js); only the binary is a file.
+// One thread: worker threads would need cross-origin isolation and a separate script.
 env.backends.onnx.wasm.wasmPaths = {
-  mjs: browser.runtime.getURL("vendor/ort-wasm-simd-threaded.asyncify.mjs"),
   wasm: browser.runtime.getURL("vendor/ort-wasm-simd-threaded.asyncify.wasm"),
 };
+env.backends.onnx.wasm.numThreads = 1;
 
 // --- State -------------------------------------------------------------------
 const loaded = { text: null, vision: null }; // { key, tokenizer|processor, model }

@@ -1,4 +1,5 @@
 import { build } from "esbuild";
+import { ortPatchPlugin } from "./src/vendor/ort-patches.js";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 const out = "dist";
@@ -15,13 +16,15 @@ await build({
   // instead of the variant that pulls code from a CDN or embeds blobs.
   conditions: ["onnxruntime-web-use-extern-wasm"],
   legalComments: "linked",
+  plugins: [ortPatchPlugin()],
+  // Only reached in Node; the browser build never loads it.
+  external: ["module", "worker_threads"],
   logLevel: "info",
 });
 
 cpSync("static", out, { recursive: true });
-for (const f of ["ort-wasm-simd-threaded.asyncify.mjs", "ort-wasm-simd-threaded.asyncify.wasm"]) {
-  cpSync(`node_modules/onnxruntime-web/dist/${f}`, `${out}/vendor/${f}`);
-}
+// The WASM glue is bundled into background.js; only the binary ships as a file.
+cpSync("node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.wasm", `${out}/vendor/ort-wasm-simd-threaded.asyncify.wasm`);
 
 // Niveus, used as-is by the popup.
 cpSync("vendor/niveus", `${out}/vendor/niveus`, { recursive: true });

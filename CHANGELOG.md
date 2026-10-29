@@ -14,3 +14,7 @@ All notable changes to this project are documented here. The format follows
 - `Alt+Shift+T` shortcut for selected text.
 - Interface built with the Niveus design system, in light and dark.
 - Logo and icons.
+
+### Security
+- ONNX Runtime is patched at build time so it never uses `new Function` or dynamic `import()`,
+  and runs under a CSP without `unsafe-eval`. `web-ext lint` reports no warnings.

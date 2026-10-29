@@ -37,9 +37,12 @@ npm run build     # output in dist/, identical to the submitted package
 
 - Node 22, npm 10. The build is `build.mjs` (esbuild).
 - `background.js` bundles Transformers.js (Apache-2.0) and ONNX Runtime Web (MIT).
-- `vendor/ort-wasm-simd-threaded.asyncify.{mjs,wasm}` are copied unchanged from
-  `node_modules/onnxruntime-web/dist/`. The `new Function` lint warning comes from this
-  Emscripten-generated file.
+- `vendor/ort-wasm-simd-threaded.asyncify.wasm` is copied unchanged from
+  `node_modules/onnxruntime-web/dist/`.
+- Two small build-time patches make ONNX Runtime work under the extension's CSP without
+  `unsafe-eval` (see `src/vendor/ort-patches.js`): Embind's `new Function` method invoker is
+  replaced with an equivalent closure (covered by `npm test`), and the runtime's
+  `import(url)` of its WASM glue is replaced with a static import, so all code is bundled.
 - `vendor/niveus/` is the Niveus CSS design system, unchanged.
 - No remote code: `wasmPaths` points at the packaged files, and model downloads contain
   weights only (ONNX and JSON).

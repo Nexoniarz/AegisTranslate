@@ -4,6 +4,7 @@
   "description": "Private, on-device multimodal translation for Firefox",
   "scripts": {
     "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs",
     "lint": "npm run build && web-ext lint -s dist",
     "start": "npm run build && web-ext run -s dist",
     "package": "npm run build && web-ext build -s dist -a web-ext-artifacts --overwrite-dest"

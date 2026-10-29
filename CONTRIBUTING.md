@@ -16,7 +16,7 @@ You need Firefox 142+ with WebGPU working (`about:support` → *WebGPU*).
 
 ## Before opening a pull request
 
-- `npm run lint` passes (it runs the build and `web-ext lint`).
+- `npm test` and `npm run lint` pass (lint runs the build and `web-ext lint`).
 - You tried the change in Firefox: popup, selected text and at least one image.
 - Both light and dark mode look right.
 
