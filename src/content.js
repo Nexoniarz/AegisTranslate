@@ -1,5 +1,5 @@
-// Content script: hover chip on images, result cards for images and selections.
-// All UI lives in a closed shadow root and results are inserted with textContent only.
+// Content script: the Translate button on images and the result cards.
+// All UI lives in a closed shadow root, and text is inserted with textContent only.
 (() => {
   const MIN_IMAGE_SIZE = 120;
   let settings = { enabled: false, visionEnabled: false, hoverChip: true, showOriginal: true };
@@ -7,7 +7,7 @@
 
   browser.storage.local.get(settings).then((s) => Object.assign(settings, s));
   browser.storage.onChanged.addListener((changes) => {
-    for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue;
+    for (const [k, v] of Object.entries(changes)) if (k in settings) settings[k] = v.newValue;
     if (!settings.enabled) teardown();
   });
 
@@ -22,7 +22,9 @@
   function ensureRoot() {
     if (root) return;
     host = document.createElement("aegis-translate");
-    host.style.cssText = "all: initial; position: absolute; top: 0; left: 0; z-index: 2147483647;";
+    // `all: initial` shields the card from page styles; color-scheme must then be set again
+    // so Niveus can follow the system appearance.
+    host.style.cssText = "all: initial; color-scheme: light dark; position: absolute; top: 0; left: 0; z-index: 2147483647;";
     root = host.attachShadow({ mode: "closed" });
     sheet.then((s) => { if (root) root.adoptedStyleSheets = [s]; });
     document.documentElement.append(host);
@@ -45,52 +47,95 @@
   }
 
   // --- Result card -----------------------------------------------------------
-  function openCard(anchorRect, title) {
+  // Opens a card under `anchorRect`, starts `job` in the background page and
+  // renders what streams back. Closing the card cancels the job.
+  function openCard(anchorRect, title, job) {
     ensureRoot();
     const card = el("section", "nv-card nv-card--floating aegis-card");
     card.setAttribute("aria-label", title);
+
     const head = el("header", "nv-card__header");
     const heading = el("div", "aegis-heading");
     heading.append(el("span", "nv-overline nv-text-secondary", title));
     const badge = el("span", "nv-badge nv-badge--accent");
     badge.append(el("span", "nv-badge__dot"), el("span", null, "On-device"));
-    heading.append(badge);
+    const timer = el("span", "nv-caption nv-text-tertiary aegis-timer", "0 s");
+    heading.append(badge, timer);
     const close = el("button", "nv-button nv-button--ghost nv-button--icon nv-button--sm", "×");
     close.setAttribute("aria-label", "Close");
-    close.addEventListener("click", () => card.remove());
     head.append(heading, close);
+
     const body = el("div", "nv-card__body aegis-body");
     body.setAttribute("aria-live", "polite");
     body.setAttribute("aria-busy", "true");
-    for (let i = 0; i < 3; i++) body.append(el("div", "nv-skeleton nv-skeleton--text"));
+    const sections = {};
+    const placeholder = el("div", "aegis-placeholder");
+    for (let i = 0; i < 3; i++) placeholder.append(el("div", "nv-skeleton nv-skeleton--text"));
+    body.append(placeholder);
     card.append(head, body);
 
     const r = pageRect(anchorRect);
     card.style.top = `${r.bottom + 8}px`;
-    card.style.left = `${Math.max(8, Math.min(r.left, scrollX + innerWidth - 392))}px`;
+    card.style.left = `${Math.max(8, Math.min(r.left, scrollX + innerWidth - 432))}px`;
     root.append(card);
-    return body;
-  }
 
-  function done(body, ...children) {
-    body.removeAttribute("aria-busy");
-    body.replaceChildren(...children);
-  }
+    const started = performance.now();
+    const tick = setInterval(() => {
+      timer.textContent = `${Math.round((performance.now() - started) / 1000)} s`;
+    }, 1000);
 
-  function showError(body, error) {
-    done(body, el("p", "nv-body nv-text-danger", error));
+    const port = browser.runtime.connect({ name: "aegis-job" });
+    const finish = () => {
+      clearInterval(tick);
+      body.removeAttribute("aria-busy");
+      placeholder.remove();
+      timer.textContent = `${((performance.now() - started) / 1000).toFixed(1)} s`;
+      port.disconnect();
+    };
+    close.addEventListener("click", () => {
+      finish();
+      card.remove();
+    });
+
+    const section = (stage) => {
+      if (sections[stage]) return sections[stage];
+      const wrap = el("div", "aegis-section");
+      if (stage === "source") {
+        wrap.append(el("span", "nv-overline nv-text-tertiary", "Text in image"));
+        wrap.hidden = !settings.showOriginal;
+      } else if (job.type === "image") {
+        wrap.append(el("span", "nv-overline nv-text-tertiary", "Translation"));
+      }
+      const text = el("p", stage === "source" ? "nv-body nv-text-secondary aegis-text" : "nv-body nv-text-primary aegis-text");
+      wrap.append(text);
+      // Source above translation, placeholder last while waiting.
+      if (stage === "source" && sections.translation) body.insertBefore(wrap, sections.translation.wrap);
+      else body.insertBefore(wrap, placeholder.isConnected ? placeholder : null);
+      return (sections[stage] = { wrap, text });
+    };
+
+    port.onMessage.addListener((msg) => {
+      if (msg.stage === "source" || msg.stage === "translation") {
+        section(msg.stage).text.textContent = msg.text;
+      } else if (msg.stage === "done") {
+        if (msg.noText) body.append(el("p", "nv-body nv-text-secondary", "No text found in this image."));
+        finish();
+      } else if (msg.stage === "error") {
+        body.append(el("p", "nv-body nv-text-danger", msg.error));
+        finish();
+      }
+    });
+    port.onDisconnect.addListener(() => clearInterval(tick));
+    port.postMessage(job);
   }
 
   // --- Text ------------------------------------------------------------------
-  async function runSelection() {
+  function runSelection() {
     if (!settings.enabled) return;
     const sel = getSelection();
     const text = sel?.toString().trim();
     if (!text) return;
-    const body = openCard(sel.getRangeAt(0).getBoundingClientRect(), "Translation");
-    const res = await browser.runtime.sendMessage({ type: "translateText", text });
-    if (!res?.ok) return showError(body, res?.error ?? "Translation failed.");
-    done(body, el("p", "nv-body aegis-translation", res.translation));
+    openCard(sel.getRangeAt(0).getBoundingClientRect(), "Translation", { type: "text", text });
   }
 
   // --- Images ----------------------------------------------------------------
@@ -99,7 +144,7 @@
   }
 
   // Use the pixels the page already has when the browser allows it; otherwise the
-  // background script re-reads the image (normally straight from the HTTP cache).
+  // background page re-reads the image (normally straight from the HTTP cache).
   function grabPixels(img) {
     try {
       const c = document.createElement("canvas");
@@ -112,25 +157,13 @@
     }
   }
 
-  async function runImage(img, src = img?.currentSrc || img?.src) {
+  function runImage(img, src = img?.currentSrc || img?.src) {
     if (!settings.enabled || !src) return;
     const rect = img ? img.getBoundingClientRect() : new DOMRect(16, 16, 0, 0);
-    const body = openCard(rect, "Image text");
-    const dataUrl = img ? grabPixels(img) : null;
-    const res = await browser.runtime.sendMessage({ type: "translateImage", src, dataUrl });
-    if (!res?.ok) return showError(body, res?.error ?? "Translation failed.");
-    if (!res.lines.length) return done(body, el("p", "nv-body nv-text-secondary", "No text found in this image."));
-    const list = el("ol", "aegis-lines");
-    for (const { original, translation } of res.lines) {
-      const li = el("li");
-      if (settings.showOriginal && original) li.append(el("div", "nv-caption nv-text-secondary", original));
-      li.append(el("div", "nv-body aegis-translation", translation));
-      list.append(li);
-    }
-    done(body, list);
+    openCard(rect, "Image", { type: "image", src, dataUrl: img ? grabPixels(img) : null });
   }
 
-  // --- Hover chip ------------------------------------------------------------
+  // --- Translate button on images -------------------------------------------
   function placeChip(img) {
     ensureRoot();
     if (!chip) {

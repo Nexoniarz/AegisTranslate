@@ -36,7 +36,10 @@ body {
 .head-end { display: flex; align-items: center; gap: var(--nv-space-2); }
 
 .actions { display: flex; align-items: center; gap: var(--nv-space-2); }
-.actions .nv-caption { flex: 1; }
+.actions .nv-caption { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.engine-group { display: flex; }
+.engine-group .nv-button { flex: 1; }
 
 /* Download progress: an inset track with an accent fill, built from tokens. */
 .progress {

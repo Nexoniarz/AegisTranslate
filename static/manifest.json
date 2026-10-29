@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "AegisTranslate",
-  "version": "0.1.0",
-  "description": "Private, on-device translation of web text and image text. Models run locally on your GPU via WebGPU; nothing is sent to translation servers.",
+  "version": "0.2.0",
+  "description": "Private, on-device translation of web text and the text in images. Runs in Firefox with WebGPU, or on your best GPU through an optional local helper.",
   "author": "Nexoniarz",
   "homepage_url": "https://github.com/Nexoniarz/AegisTranslate",
   "icons": {
@@ -26,6 +26,9 @@
     "menus",
     "unlimitedStorage",
     "<all_urls>"
+  ],
+  "optional_permissions": [
+    "nativeMessaging"
   ],
   "background": {
     "page": "background.html",

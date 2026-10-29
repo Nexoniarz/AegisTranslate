@@ -12,11 +12,15 @@ npm install
 npm start         # opens Firefox with the extension loaded
 ```
 
-You need Firefox 142+ with WebGPU working (`about:support` → *WebGPU*).
+You need Firefox 142+ with WebGPU working (`about:support` → *WebGPU*), Node 22 and Python 3.
+To work on the local helper you also need `llama-server` from llama.cpp; the tests use a fake
+one, so they run anywhere.
 
 ## Before opening a pull request
 
 - `npm test` and `npm run lint` pass (lint runs the build and `web-ext lint`).
+- If you touched the background page, the helper or the content script: `npm run test:e2e`
+  passes (needs Playwright with Chromium).
 - You tried the change in Firefox: popup, selected text and at least one image.
 - Both light and dark mode look right.
 

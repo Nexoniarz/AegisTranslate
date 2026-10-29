@@ -10,13 +10,43 @@
     <img class="logo" src="icons/icon-48.png" alt="" width="32" height="32">
     <div class="brand">
       <h1 class="nv-title">AegisTranslate</h1>
-      <span class="nv-caption nv-text-secondary" id="gpu"></span>
+      <span class="nv-caption nv-text-secondary" id="deviceLine"></span>
     </div>
     <span class="nv-badge" id="statePill"><span class="nv-badge__dot"></span><span>Off</span></span>
     <input class="nv-switch" type="checkbox" id="enabled" aria-label="Turn AegisTranslate on or off">
   </header>
 
   <main class="nv-stack">
+    <section class="nv-card" aria-labelledby="engineHeading">
+      <div class="nv-card__body nv-stack nv-stack--tight">
+        <h2 class="nv-label" id="engineHeading">Engine</h2>
+        <div class="nv-button-group engine-group" role="group" aria-labelledby="engineHeading">
+          <button class="nv-button nv-button--sm" data-engine="browser" aria-pressed="false">In browser</button>
+          <button class="nv-button nv-button--sm" data-engine="helper" aria-pressed="false">Local helper</button>
+        </div>
+        <p class="nv-caption nv-text-secondary" id="engineHint"></p>
+
+        <div class="nv-stack nv-stack--tight" id="helperBox" hidden>
+          <div class="actions">
+            <span class="nv-badge" id="helperState"></span>
+            <span class="nv-caption nv-text-secondary" id="helperDevice"></span>
+            <button class="nv-button nv-button--ghost nv-button--sm" id="helperStop">Stop</button>
+            <button class="nv-button nv-button--sm" id="helperCheck">Check</button>
+          </div>
+          <p class="nv-caption nv-text-danger" id="helperError" hidden></p>
+          <p class="nv-caption nv-text-secondary" id="helperSetup" hidden>
+            Install the helper once: <a href="https://github.com/Nexoniarz/AegisTranslate#local-helper" target="_blank" rel="noreferrer">setup guide</a>.
+          </p>
+          <div class="nv-field">
+            <label class="nv-field__label" for="helperIdleMinutes">Stop the helper after</label>
+            <div class="nv-select">
+              <select class="nv-input nv-input--sm" id="helperIdleMinutes"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="nv-card">
       <div class="nv-card__body nv-field">
         <label class="nv-field__label" for="targetLang">Translate into</label>
@@ -32,46 +62,47 @@
         <span class="nv-badge" id="textState"></span>
       </header>
       <div class="nv-card__body nv-stack nv-stack--tight">
-      <div class="nv-select">
-        <select class="nv-input" id="textModel" aria-labelledby="textHeading"></select>
-      </div>
-      <div class="progress" id="textProgress" hidden><div class="progress__fill"></div></div>
-      <div class="actions">
-        <span class="nv-caption nv-text-tertiary" id="textDetail"></span>
-        <button class="nv-button nv-button--ghost nv-button--sm" id="textForget">Delete</button>
-        <button class="nv-button nv-button--primary nv-button--sm" id="textDownload">Download</button>
-      </div>
-      <p class="nv-caption nv-text-secondary">
-        Select text, then right-click → <b>Translate selection</b>, or press <kbd class="nv-code">Alt+Shift+T</kbd>.
-      </p>
+        <div class="nv-select">
+          <select class="nv-input" id="textModel" aria-labelledby="textHeading"></select>
+        </div>
+        <div class="progress" id="textProgress" hidden><div class="progress__fill"></div></div>
+        <div class="actions">
+          <span class="nv-caption nv-text-tertiary detail" id="textDetail"></span>
+          <button class="nv-button nv-button--ghost nv-button--sm" id="textForget">Delete</button>
+          <button class="nv-button nv-button--primary nv-button--sm" id="textLoad">Download</button>
+        </div>
+        <p class="nv-caption nv-text-secondary">
+          Select text, then right-click → <b>Translate selection</b>, or press <kbd class="nv-code">Alt+Shift+T</kbd>.
+        </p>
       </div>
     </section>
 
     <section class="nv-card" aria-labelledby="visionHeading">
       <header class="nv-card__header card-head">
-        <h2 class="nv-label" id="visionHeading">Image translation</h2>
+        <h2 class="nv-label" id="visionHeading">Images</h2>
         <span class="head-end">
           <span class="nv-badge" id="visionState"></span>
           <input class="nv-switch" type="checkbox" id="visionEnabled" aria-label="Turn image translation on or off">
         </span>
       </header>
       <div class="nv-card__body nv-stack nv-stack--tight">
-      <p class="nv-caption nv-text-secondary" id="visionOff">
-        Reads speech bubbles, captions and signs. Uses a separate vision model.
-      </p>
-      <div class="nv-stack nv-stack--tight" id="visionBox">
-        <div class="nv-select">
-          <select class="nv-input" id="visionModel" aria-labelledby="visionHeading"></select>
+        <p class="nv-caption nv-text-secondary" id="visionOff">
+          Read and translate the text in any image. Uses a separate vision model.
+        </p>
+        <div class="nv-stack nv-stack--tight" id="visionBox">
+          <div class="nv-select">
+            <select class="nv-input" id="visionModel" aria-labelledby="visionHeading"></select>
+          </div>
+          <div class="progress" id="visionProgress" hidden><div class="progress__fill"></div></div>
+          <div class="actions">
+            <span class="nv-caption nv-text-tertiary detail" id="visionDetail"></span>
+            <button class="nv-button nv-button--ghost nv-button--sm" id="visionForget">Delete</button>
+            <button class="nv-button nv-button--primary nv-button--sm" id="visionLoad">Download</button>
+          </div>
+          <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="hoverChip"> Show a Translate button on images</label>
+          <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="showOriginal"> Show the text found in the image</label>
+          <p class="nv-caption nv-text-secondary">Or right-click an image → <b>Translate text in image</b>.</p>
         </div>
-        <div class="progress" id="visionProgress" hidden><div class="progress__fill"></div></div>
-        <div class="actions">
-          <span class="nv-caption nv-text-tertiary" id="visionDetail"></span>
-          <button class="nv-button nv-button--ghost nv-button--sm" id="visionForget">Delete</button>
-          <button class="nv-button nv-button--primary nv-button--sm" id="visionDownload">Download</button>
-        </div>
-        <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="hoverChip"> Show a Translate button on images</label>
-        <label class="nv-choice nv-label"><input class="nv-checkbox" type="checkbox" id="showOriginal"> Show the original text</label>
-      </div>
       </div>
     </section>
 

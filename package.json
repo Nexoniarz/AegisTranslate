@@ -1,10 +1,11 @@
 {
   "name": "aegistranslate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Private, on-device multimodal translation for Firefox",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs && python3 -m unittest discover -s test/helper",
+    "test:e2e": "npm run build && node test/e2e/run.cjs",
     "lint": "npm run build && web-ext lint -s dist",
     "start": "npm run build && web-ext run -s dist",
     "package": "npm run build && web-ext build -s dist -a web-ext-artifacts --overwrite-dest"

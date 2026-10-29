@@ -19,6 +19,8 @@ expect a reply within a week.
 - Any network request the extension makes that isn't described in [PRIVACY.md](PRIVACY.md).
 - Prompt injection that makes the extension do anything other than output a (wrong) translation.
 - Code loaded from anywhere other than the extension package.
+- The local helper: anything that lets a web page reach it directly, makes it listen on
+  anything other than `127.0.0.1`, or leaves `llama-server` running after Firefox disconnects.
 
 ## Design notes
 
@@ -26,3 +28,5 @@ expect a reply within a week.
   access, and its output is inserted with `textContent`, never as HTML.
 - All UI lives in a closed shadow root, and the extension exposes no web-accessible resources.
 - The ONNX runtime and all scripts are bundled. Nothing is fetched from a CDN.
+- Only this extension's ID may start the local helper (`allowed_extensions` in its native
+  messaging manifest). The helper binds `llama-server` to `127.0.0.1` on a random port.

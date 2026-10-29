@@ -6,7 +6,7 @@
 
 .aegis-card {
   position: absolute;
-  inline-size: 380px;
+  inline-size: min(420px, calc(100vw - 16px));
   max-block-size: 60vh;
   display: flex;
   flex-direction: column;
@@ -16,9 +16,11 @@
 }
 .nv-card__header { display: flex; align-items: center; justify-content: space-between; gap: var(--nv-space-2); }
 .aegis-heading { display: flex; align-items: center; gap: var(--nv-space-2); }
-.aegis-body { display: grid; gap: var(--nv-space-2); overflow-y: auto; }
+.aegis-body { display: grid; gap: var(--nv-space-4); overflow-y: auto; }
 .aegis-body p { margin: 0; }
-.aegis-translation { white-space: pre-wrap; }
-.aegis-lines { display: grid; gap: var(--nv-space-3); margin: 0; padding-inline-start: var(--nv-space-5); }
+.aegis-section { display: grid; gap: var(--nv-space-1); }
+.aegis-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.aegis-placeholder { display: grid; gap: var(--nv-space-2); }
+.aegis-timer { font-variant-numeric: tabular-nums; }
 
 .aegis-chip { position: absolute; }

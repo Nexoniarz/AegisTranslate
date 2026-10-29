@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
+### Added
+- **Local helper engine.** A small native-messaging helper runs llama.cpp on the GPU with the
+  most memory, such as the dedicated card in a hybrid machine. Firefox starts it on demand and
+  stops it after an idle timeout. Installers for Linux and macOS, and a Nix package for NixOS.
+- Engine switch in the popup, with separate model choices per engine (Qwen3 4B/8B and
+  Qwen2.5-VL 3B/7B or Qwen3-VL 4B for the helper).
+- Streaming: translations appear as they are generated, with a timer. Closing a card cancels
+  generation.
+- End-to-end test of the extension with the real helper and a fake llama-server.
+
+### Changed
+- Images are read first (text in the image, in its original language) and then translated by
+  the text model, for any kind of image rather than comics only.
+- The result card shows "Text in image" and "Translation" as separate sections.
+
+### Fixed
+- The overlay card ignored dark mode.
+
+## [0.1.0] - 2026-10-29
+
 ### Added
 - Translation of selected text with Qwen3 1.7B or 4B, running locally through WebGPU.
 - Image translation with an optional vision model (Qwen2-VL 2B, Qwen3-VL 2B), from a hover

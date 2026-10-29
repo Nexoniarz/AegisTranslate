@@ -16,6 +16,8 @@ sending anything to a translation service.
 - Select text and right-click → Translate selection, or press Alt+Shift+T.
 - Hover an image and click Translate to read its speech bubbles, captions and signs.
 - Choose your models: a text model (Qwen3 1.7B or 4B) and an optional vision model.
+- Optional local helper: run the models with llama.cpp on your most powerful GPU. Firefox
+  starts it when needed and stops it when idle.
 - One switch turns it off and frees GPU memory.
 
 Everything runs locally through WebGPU. The only network requests are model downloads from
@@ -46,3 +48,7 @@ npm run build     # output in dist/, identical to the submitted package
 - `vendor/niveus/` is the Niveus CSS design system, unchanged.
 - No remote code: `wasmPaths` points at the packaged files, and model downloads contain
   weights only (ONNX and JSON).
+- `nativeMessaging` is an optional permission, requested only when the user chooses the
+  "Local helper" engine. The helper is a separate, open-source Python script
+  (`helper/aegistranslate_helper.py`) that the user installs themselves; it is not part of the
+  package. Only this add-on's ID is allowed to start it.
