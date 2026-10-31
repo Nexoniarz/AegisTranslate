@@ -9,8 +9,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 args = sys.argv[1:]
 if "--list-devices" in args:
     print("Available devices:")
-    print("  Vulkan0: AMD Radeon Graphics (RADV RENOIR) (4096 MiB, 3900 MiB free)")
-    print("  CUDA0: NVIDIA GeForce RTX 3060 Ti (8192 MiB, 7800 MiB free)")
+    default = [
+        "Vulkan0: AMD Radeon Graphics (RADV RENOIR) (4096 MiB, 3900 MiB free)",
+        "CUDA0: NVIDIA GeForce RTX 3060 Ti (8192 MiB, 7800 MiB free)",
+    ]
+    for line in json.loads(os.environ["FAKE_DEVICES"]) if os.environ.get("FAKE_DEVICES") else default:
+        print("  " + line)
     sys.exit(0)
 
 opts = dict(zip(args[::2], args[1::2]))

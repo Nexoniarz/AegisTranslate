@@ -108,12 +108,38 @@ def list_devices(llama_server):
     return devices
 
 
+# Software renderers: never worth running a model on.
+SOFTWARE_GPU = re.compile(r"llvmpipe|lavapipe|softpipe|SwiftShader", re.I)
+# Integrated GPUs, by the names their drivers report. Integrated GPUs report
+# shared system RAM as their memory (for example 25 GB for a Radeon Vega 8 next
+# to an 8 GB RTX 3060 Ti), so memory size alone would pick them.
+#   AMD:   "AMD Radeon Graphics (RADV RENOIR)", "AMD Radeon 780M Graphics",
+#          "AMD Radeon(TM) Vega 8 Graphics"; discrete cards are "Radeon RX ...",
+#          "Radeon Pro ...", "Radeon VII" and do not end in "Graphics".
+#   Intel: "Intel(R) UHD Graphics 770", "Intel(R) Iris(R) Xe Graphics",
+#          "Intel(R) Arc(TM) Graphics", "Intel(R) Arc(TM) 140V GPU";
+#          discrete Arc cards carry a model number like A770 or B580.
+INTEGRATED_GPU = re.compile(
+    r"\bRadeon\b(?!.*\b(RX|Pro|VII)\b).*\bGraphics\b"
+    r"|\bIntel\b.*\b(UHD|HD|Iris)\b"
+    r"|\bArc(\(TM\))? (Graphics|\d+V\b)",
+    re.I,
+)
+
+
+def is_integrated(device):
+    return bool(INTEGRATED_GPU.search(device.get("description", "")))
+
+
 def pick_device(devices, configured):
     if configured:
         return next((d for d in devices if d["name"] == configured), {"name": configured, "description": configured})
-    gpus = [d for d in devices if not d["name"].upper().startswith("CPU")]
-    # The card with the most memory is the dedicated GPU on hybrid machines.
-    return max(gpus, key=lambda d: d["total_mib"], default=None)
+    gpus = [
+        d for d in devices
+        if not d["name"].upper().startswith("CPU") and not SOFTWARE_GPU.search(d.get("description", ""))
+    ]
+    # Dedicated GPUs first, then the one with the most memory.
+    return max(gpus, key=lambda d: (not is_integrated(d), d["total_mib"]), default=None)
 
 
 # --- llama-server processes ---------------------------------------------------
