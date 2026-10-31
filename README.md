@@ -80,7 +80,7 @@ popup.
 ### Local helper (llama.cpp)
 
 A small Python script, [`helper/aegistranslate_helper.py`](helper/aegistranslate_helper.py), runs
-[llama.cpp](https://github.com/ggml-org/llama.cpp) on the GPU with the most memory. It is usually
+[llama.cpp](https://github.com/ggml-org/llama.cpp) on your dedicated GPU. It is usually
 much faster than WebGPU and can run larger models. On hybrid-GPU machines it uses the dedicated
 card without changing how Firefox itself runs.
 
@@ -139,13 +139,18 @@ Add the helper to Firefox's native messaging hosts in `configuration.nix`:
 
 ```nix
 programs.firefox.nativeMessagingHosts.packages = [
-  (pkgs.callPackage /path/to/AegisTranslate/helper { cudaSupport = true; })
+  (pkgs.callPackage /path/to/AegisTranslate/helper { })
 ];
 ```
 
-`cudaSupport = true` builds llama.cpp with CUDA for NVIDIA cards; it needs
-`nixpkgs.config.allowUnfree = true` and compiles locally the first time. Leave it out to use the
-Vulkan build, which works with any GPU vendor.
+Without arguments you get the Vulkan build, which works with any GPU vendor (NVIDIA included)
+and comes prebuilt from the NixOS binary cache. `cudaSupport = true` builds llama.cpp with CUDA
+instead; it needs `nixpkgs.config.allowUnfree = true` and compiles locally the first time.
+On PRIME offload setups neither needs `nvidia-offload`: the helper uses the NVIDIA card for
+compute while Firefox stays on the integrated GPU.
+
+**[Full NixOS guide](docs/NIXOS.md)**: flakes, Home Manager, installing without a clone, CUDA,
+hybrid graphics (PRIME offload) and troubleshooting.
 
 ### Then
 
@@ -154,7 +159,9 @@ press **Check**. The header shows the GPU the helper picked.
 
 ### Choosing a different GPU
 
-The helper picks the GPU with the most memory. To force one, put its llama.cpp device name
+The helper prefers a dedicated GPU over an integrated one (integrated GPUs report shared system
+RAM, so they often look bigger), then the one with the most memory. To force one, put its
+llama.cpp device name
 (shown by `aegistranslate-helper --check`) in `~/.config/aegistranslate/helper.json`:
 
 ```json
@@ -162,8 +169,8 @@ The helper picks the GPU with the most memory. To force one, put its llama.cpp d
 ```
 
 The same file accepts `"context"` (context size in tokens, default 4096) and `"extra_args"` (a list
-passed to `llama-server`). Downloaded models are stored in llama.cpp's cache, usually
-`~/.cache/llama.cpp`.
+passed to `llama-server`). Downloaded models are stored in the Hugging Face cache,
+`~/.cache/huggingface/hub` (older llama.cpp versions use `~/.cache/llama.cpp`).
 
 ## How it works
 
@@ -246,6 +253,7 @@ src/
   models.js          model catalogs and defaults
   vendor/            build-time patches that let ONNX Runtime run without eval
 helper/              local helper: script, installer, Nix package
+docs/                NixOS guide, addons.mozilla.org listing
 static/           manifest, HTML, CSS, icons
 vendor/niveus/    Niveus design system (CSS + fonts)
 assets/           logo and screenshots

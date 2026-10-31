@@ -61,6 +61,36 @@ class HelperTest(unittest.TestCase):
         self.assertEqual(result["device"]["name"], "CUDA0")
         self.assertEqual(len(result["devices"]), 2)
 
+    def test_dedicated_gpu_beats_integrated_with_more_shared_memory(self):
+        # A real Vulkan build on a Ryzen 5700G + RTX 3060 Ti desktop: the iGPU
+        # reports shared system RAM and looks three times bigger.
+        os.environ["FAKE_DEVICES"] = json.dumps([
+            "Vulkan0: AMD Radeon Graphics (RADV RENOIR) (25063 MiB, 24089 MiB free)",
+            "Vulkan1: NVIDIA GeForce RTX 3060 Ti (8438 MiB, 7776 MiB free)",
+        ])
+        try:
+            sys.path.insert(0, os.path.dirname(HELPER))
+            import aegistranslate_helper as h
+            devices = h.list_devices(os.path.join(HERE, "fake_llama_server.py"))
+        finally:
+            del os.environ["FAKE_DEVICES"]
+        self.assertEqual(h.pick_device(devices, None)["name"], "Vulkan1")
+        self.assertEqual(h.pick_device(devices, "Vulkan0")["name"], "Vulkan0")
+        names = {
+            "AMD Radeon 780M Graphics": True,
+            "AMD Radeon(TM) Vega 8 Graphics": True,
+            "Intel(R) UHD Graphics 770": True,
+            "Intel(R) Iris(R) Xe Graphics": True,
+            "Intel(R) Arc(TM) Graphics": True,
+            "Intel(R) Arc(TM) 140V GPU (16GB)": True,
+            "AMD Radeon RX 7900 XTX (RADV NAVI31)": False,
+            "AMD Radeon Pro W6800": False,
+            "Intel(R) Arc(TM) A770 Graphics": False,
+            "NVIDIA GeForce RTX 3060 Ti": False,
+        }
+        for name, integrated in names.items():
+            self.assertEqual(h.is_integrated({"description": name}), integrated, name)
+
     def test_chat_streams_tokens_and_uses_device(self):
         payload = {"messages": [{"role": "user", "content": "hello"}], "chat_template_kwargs": {"enable_thinking": False}}
         events = self.request(type="chat", kind="text", model="Qwen/Qwen3-4B-GGUF:Q4_K_M", payload=payload)

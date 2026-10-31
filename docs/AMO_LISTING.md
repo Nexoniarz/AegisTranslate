@@ -10,19 +10,21 @@ your GPU through WebGPU; nothing you read is sent to a server.
 
 **Description:**
 
-Translate web pages and the text inside images (manga, comics, infographics, scans) without
-sending anything to a translation service.
+Translate selected text and the text inside images (screenshots, signs, scans, comics, charts)
+without sending anything to a translation service.
 
 - Select text and right-click → Translate selection, or press Alt+Shift+T.
-- Hover an image and click Translate to read its speech bubbles, captions and signs.
-- Choose your models: a text model (Qwen3 1.7B or 4B) and an optional vision model.
-- Optional local helper: run the models with llama.cpp on your most powerful GPU. Firefox
-  starts it when needed and stops it when idle.
+- Hover an image and click Translate: you get the text found in the image and its translation.
+- Translations stream in word by word. Closing the card stops the work.
+- Two engines: In browser (Transformers.js on WebGPU, nothing to install), or the optional
+  local helper, which runs llama.cpp on your most powerful GPU, such as the dedicated card in
+  a hybrid laptop or desktop, without changing how Firefox itself runs. Firefox starts the
+  helper when needed and stops it when idle.
 - One switch turns it off and frees GPU memory.
 
-Everything runs locally through WebGPU. The only network requests are model downloads from
-Hugging Face, which you start yourself. Requires Firefox 142+ with WebGPU and 2–4 GB of free
-VRAM.
+Everything runs on your device. The only network requests are model downloads from Hugging
+Face, which you start yourself. Requires Firefox 142+, and WebGPU or the local helper, with
+2–6 GB of free VRAM depending on the models.
 
 Open source under Apache 2.0: https://github.com/Nexoniarz/AegisTranslate
 
@@ -36,6 +38,9 @@ The package contains bundled, minified code. To reproduce it:
 npm ci
 npm run build     # output in dist/, identical to the submitted package
 ```
+
+Upload `web-ext-artifacts/aegistranslate-source.zip` (made by `npm run package:source`, a
+`git archive` of the tagged commit) as the source code.
 
 - Node 22, npm 10. The build is `build.mjs` (esbuild).
 - `background.js` bundles Transformers.js (Apache-2.0) and ONNX Runtime Web (MIT).
