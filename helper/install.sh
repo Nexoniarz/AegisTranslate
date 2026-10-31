@@ -17,7 +17,7 @@ esac
 if [ "${1:-}" = "--uninstall" ]; then
   rm -f "$HOSTS/$NAME.json"
   rm -rf "$DATA"
-  echo "Removed. Settings in $CONFIG_DIR and models in ~/.cache/llama.cpp were kept."
+  echo "Removed. Settings in $CONFIG_DIR and models in ~/.cache/huggingface/hub (or ~/.cache/llama.cpp) were kept."
   exit 0
 fi
 

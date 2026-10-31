@@ -2,7 +2,7 @@
 #
 # In configuration.nix:
 #   programs.firefox.nativeMessagingHosts.packages = [
-#     (pkgs.callPackage /path/to/AegisTranslate/helper { cudaSupport = true; })
+#     (pkgs.callPackage /path/to/AegisTranslate/helper { })
 #   ];
 #
 # cudaSupport needs nixpkgs.config.allowUnfree = true and builds llama.cpp

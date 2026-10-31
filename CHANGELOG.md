@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The local helper picked the integrated GPU on desktops and laptops with an AMD or Intel APU,
+  because integrated GPUs report shared system RAM (for example 25 GB for a Radeon Vega 8 next
+  to an 8 GB RTX 3060 Ti). Dedicated GPUs are now preferred, and software renderers are skipped.
+
+### Added
+- NixOS guide (`docs/NIXOS.md`): configuration.nix, flakes, Home Manager, CUDA, hybrid graphics
+  and troubleshooting.
+- `npm run package:source` makes the source archive for addons.mozilla.org review.
+
 ## [0.2.0] - 2026-10-29
 
 ### Added

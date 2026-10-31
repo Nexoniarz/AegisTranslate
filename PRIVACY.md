@@ -37,7 +37,8 @@ model downloads described above.
 
 - Your settings (on/off, language, chosen models), in extension storage.
 - Downloaded model files: in the browser's cache for the *In browser* engine, and in
-  llama.cpp's cache (usually `~/.cache/llama.cpp`) for the local helper.
+  the Hugging Face cache used by llama.cpp (`~/.cache/huggingface/hub`; older llama.cpp versions
+  use `~/.cache/llama.cpp`) for the local helper.
 
 Both stay on your device. **Delete** in the popup removes a model's files; removing the
 extension removes everything.

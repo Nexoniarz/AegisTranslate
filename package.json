@@ -8,7 +8,8 @@
     "test:e2e": "npm run build && node test/e2e/run.cjs",
     "lint": "npm run build && web-ext lint -s dist",
     "start": "npm run build && web-ext run -s dist",
-    "package": "npm run build && web-ext build -s dist -a web-ext-artifacts --overwrite-dest"
+    "package": "npm run build && web-ext build -s dist -a web-ext-artifacts --overwrite-dest",
+    "package:source": "mkdir -p web-ext-artifacts && git archive --format=zip -o web-ext-artifacts/aegistranslate-source.zip HEAD"
   },
   "author": "Nexoniarz",
   "license": "Apache-2.0",
