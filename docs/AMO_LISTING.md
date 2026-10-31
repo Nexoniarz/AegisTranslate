@@ -14,6 +14,8 @@ Translate selected text and the text inside images (screenshots, signs, scans, c
 without sending anything to a translation service.
 
 - Select text and right-click → Translate selection, or press Alt+Shift+T.
+- Translate the whole page in place (right-click → Translate page, or Alt+Shift+P), with
+  Show original one click away.
 - Hover an image and click Translate: you get the text found in the image and its translation.
 - Translations stream in word by word. Closing the card stops the work.
 - Two engines: In browser (Transformers.js on WebGPU, nothing to install), or the optional

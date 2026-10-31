@@ -24,3 +24,16 @@
 .aegis-timer { font-variant-numeric: tabular-nums; }
 
 .aegis-chip { position: absolute; }
+
+.aegis-bar {
+  position: fixed;
+  inset-block-end: 16px;
+  inset-inline-end: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--nv-space-2);
+  max-inline-size: calc(100vw - 32px);
+  padding: var(--nv-space-2) var(--nv-space-2) var(--nv-space-2) var(--nv-space-3);
+  font-family: var(--nv-font-family-sans);
+}
+.aegis-bar__label { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }

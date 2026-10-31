@@ -41,6 +41,7 @@ function render(status) {
   const s = status.settings;
   const engine = s.engine;
   for (const key of ["enabled", "visionEnabled", "hoverChip", "showOriginal"]) $(key).checked = s[key];
+  $("translatePage").disabled = !s.enabled;
   $("targetLang").value = s.targetLang;
   $("helperIdleMinutes").value = String(s.helperIdleMinutes);
   $("visionBox").hidden = !s.visionEnabled;
@@ -119,7 +120,7 @@ function renderHelperModel(kind, status) {
   const loading = h.progress[kind];
   const inMemory = h.info?.loaded?.[kind] === spec.hf;
 
-  if (loading) setBadge($(`${kind}State`), "Loading", "accent");
+  if (loading) setBadge($(`${kind}State`), loading.total ? "Downloading" : "Loading", "accent");
   else if (inMemory) setBadge($(`${kind}State`), "On GPU", "success");
   else setBadge($(`${kind}State`), "Not loaded", null);
 
@@ -129,8 +130,10 @@ function renderHelperModel(kind, status) {
   button.disabled = !!loading || !h.permission;
   button.setAttribute("aria-busy", String(!!loading));
   $(`${kind}Forget`).hidden = true;
-  $(`${kind}Detail`).textContent = loading || "Downloaded on first load";
-  $(`${kind}Progress`).hidden = true;
+  $(`${kind}Detail`).textContent = loading?.text ?? (inMemory ? spec.hf.split("/").pop() : "Downloaded on first load");
+  const bar = $(`${kind}Progress`);
+  bar.hidden = !loading?.total;
+  if (loading?.total) bar.style.setProperty("--progress", loading.loaded / loading.total);
 }
 
 function renderProgress(kind, p) {
@@ -204,6 +207,17 @@ $("helperCheck").addEventListener("click", async () => {
   showError(null);
   if (!current.helper.permission && !(await ensureHelperPermission())) return;
   await checkHelper();
+});
+$("translatePage").addEventListener("click", async () => {
+  showError(null);
+  if (!current?.settings.enabled) return showError("Turn AegisTranslate on first.");
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  try {
+    await browser.tabs.sendMessage(tab.id, { type: "togglePage" });
+    window.close();
+  } catch {
+    showError("This page can't be translated (Firefox pages and add-on stores are off limits to add-ons).");
+  }
 });
 $("helperStop").addEventListener("click", async () => {
   const res = await send({ type: "helperStop" });
