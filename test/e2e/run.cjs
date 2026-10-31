@@ -115,6 +115,13 @@ function mockBrowser() {
 
 const PAGE = `<!doctype html><meta charset="utf-8"><body>
   <p id="para">Dzień dobry, świecie.</p>
+  <article>
+    <h1 id="title">Tytuł strony</h1>
+    <p id="mixed">Witaj <a id="link" href="#">świecie</a> dziś.</p>
+    <pre id="code">const x = 1;</pre>
+    <p id="keep" translate="no">Nie tłumacz</p>
+    <p id="far" style="margin-top: 6000px">Daleko w dole</p>
+  </article>
   <canvas id="c" width="200" height="160"></canvas>
   <img id="img" width="200" height="160">
   <script>
@@ -277,6 +284,71 @@ async function main() {
     const status = await page.evaluate(() => browser.runtime.sendMessage({ type: "helperCheck" }));
     assert.equal(status.ok, true);
     assert.equal(status.helper.info.device.description, "NVIDIA GeForce RTX 3060 Ti");
+  });
+
+  const pageState = () =>
+    page.evaluate(() => ({
+      title: document.getElementById("title").textContent,
+      mixed: document.getElementById("mixed").textContent,
+      link: document.getElementById("link")?.textContent,
+      linkIsLink: document.getElementById("link")?.tagName === "A",
+      code: document.getElementById("code").textContent,
+      keep: document.getElementById("keep").textContent,
+      far: document.getElementById("far").textContent,
+      dyn: document.getElementById("dyn")?.textContent,
+      bar: window.__root?.querySelector(".aegis-bar")?.innerText ?? null,
+    }));
+  const waitPage = async (predicate, label) => {
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      const st = await pageState();
+      if (predicate(st)) return st;
+      await page.waitForTimeout(100);
+    }
+    throw new Error(`timed out waiting for ${label}; page: ${JSON.stringify(await pageState())}`);
+  };
+
+  await check("whole page: visible blocks are translated in place", async () => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.__fire(browser.runtime.onMessage, { type: "togglePage" }));
+    const st = await waitPage((s) => /Translated into English/.test(s.bar ?? ""), "page translation to finish");
+    assert.match(st.title, /^ECHO <source>\nTytuł strony\n<\/source>/);
+    assert.match(st.mixed, /ECHO/);
+    assert.equal(st.link, "świecie", "the link should keep its own words");
+    assert.ok(st.linkIsLink, "the link element must survive");
+    assert.equal(st.code, "const x = 1;", "code is not translated");
+    assert.equal(st.keep, "Nie tłumacz", 'translate="no" is respected');
+    assert.equal(st.far, "Daleko w dole", "off-screen text waits until it is scrolled to");
+  });
+
+  await check("whole page: text is translated when scrolled into view, and new content too", async () => {
+    await page.evaluate(() => document.getElementById("far").scrollIntoView());
+    await waitPage((s) => s.far.startsWith("ECHO"), "far paragraph");
+    await page.evaluate(() => {
+      const p = document.createElement("p");
+      p.id = "dyn";
+      p.textContent = "Nowa treść";
+      document.getElementById("far").after(p);
+    });
+    await waitPage((s) => s.dyn?.startsWith("ECHO"), "dynamically added paragraph");
+  });
+
+  await check("whole page: show original, show translation, and close restores", async () => {
+    const click = (i) => page.evaluate((i) => window.__root.querySelectorAll(".aegis-bar button")[i].click(), i);
+    await click(0);
+    let st = await pageState();
+    assert.equal(st.title, "Tytuł strony");
+    assert.equal(st.mixed, "Witaj świecie dziś.");
+    assert.match(st.bar, /Show translation/);
+    await click(0);
+    st = await pageState();
+    assert.match(st.title, /^ECHO/);
+    await click(1);
+    st = await pageState();
+    assert.equal(st.title, "Tytuł strony");
+    assert.equal(st.far, "Daleko w dole");
+    assert.equal(st.dyn, "Nowa treść");
+    assert.equal(st.bar, null, "the bar is removed");
   });
 
   await check("turning translation off stops the helper", async () => {

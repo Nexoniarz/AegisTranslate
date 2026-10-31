@@ -91,6 +91,43 @@ class HelperTest(unittest.TestCase):
         for name, integrated in names.items():
             self.assertEqual(h.is_integrated({"description": name}), integrated, name)
 
+    def test_download_progress(self):
+        sys.path.insert(0, os.path.dirname(HELPER))
+        import aegistranslate_helper as h
+        cache = os.path.join(self.tmp.name, "hub")
+        blobs = os.path.join(cache, "models--org--Model-GGUF", "blobs")
+        os.makedirs(blobs)
+        tree = os.path.join(self.tmp.name, "tree.json")
+        with open(tree, "w") as f:
+            json.dump([
+                {"path": "model.gguf", "lfs": {"oid": "aaa", "size": 3_000_000_000}},
+                {"path": "mmproj.gguf", "lfs": {"oid": "bbb", "size": 1_000_000_000}},
+                {"path": "README.md"},
+            ], f)
+        events = []
+        os.environ["HF_HUB_CACHE"] = cache
+        try:
+            watch = h.DownloadWatch("org/Model-GGUF:Q4_K_M", lambda text, **kw: events.append((text, kw)),
+                                    sizes_url="file://" + tree)
+            watch.stop()  # drive it by hand
+        finally:
+            del os.environ["HF_HUB_CACHE"]
+        watch.poll()
+        self.assertEqual(events, [], "reported progress before anything was downloading")
+        for name, size in (("aaa.downloadInProgress", 1000), ("bbb.downloadInProgress", 500)):
+            with open(os.path.join(blobs, name), "wb") as f:
+                f.truncate(size)
+        watch.poll()
+        self.assertEqual(events[-1][1], {"loaded": 1500, "total": 4_000_000_000})
+        self.assertIn("of 4.00 GB", events[-1][0])
+        os.rename(os.path.join(blobs, "aaa.downloadInProgress"), os.path.join(blobs, "aaa"))
+        watch.poll()
+        self.assertEqual(events[-1][1]["loaded"], 1500)
+        os.rename(os.path.join(blobs, "bbb.downloadInProgress"), os.path.join(blobs, "bbb"))
+        watch.poll()
+        watch.poll()
+        self.assertEqual([e[0] for e in events].count("Download complete. Loading into GPU memory…"), 1)
+
     def test_chat_streams_tokens_and_uses_device(self):
         payload = {"messages": [{"role": "user", "content": "hello"}], "chat_template_kwargs": {"enable_thinking": False}}
         events = self.request(type="chat", kind="text", model="Qwen/Qwen3-4B-GGUF:Q4_K_M", payload=payload)

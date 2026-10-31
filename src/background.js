@@ -1,7 +1,7 @@
 // Background page: routes translation requests to the chosen engine and streams
 // the results to the page that asked.
 import { DEFAULT_SETTINGS, selectedModel } from "./models.js";
-import { translationMessages, READ_IMAGE_PROMPT, NO_TEXT, cleanOutput } from "./prompts.js";
+import { translationMessages, READ_IMAGE_PROMPT, NO_TEXT, cleanOutput, loopCut } from "./prompts.js";
 import * as browserEngine from "./browser-engine.js";
 import * as helper from "./helper-client.js";
 
@@ -99,47 +99,76 @@ async function imageBlob({ dataUrl, src }, maxSide) {
 }
 
 // --- Translation jobs -------------------------------------------------------------
+// Runs one generation, streaming cleaned text to `onText`. If the model gets stuck
+// repeating itself, generation is stopped and the repeated tail is cut off.
+async function guarded(run, signal, onText) {
+  const inner = new AbortController();
+  const abort = () => inner.abort();
+  signal.addEventListener("abort", abort);
+  let cut = -1;
+  try {
+    const raw = await run(inner.signal, (t) => {
+      if (cut >= 0) return;
+      const text = cleanOutput(t);
+      cut = loopCut(text);
+      if (cut >= 0) inner.abort();
+      onText(cut >= 0 ? text.slice(0, cut).trim() : text);
+    });
+    const text = cleanOutput(raw);
+    if (cut < 0) cut = loopCut(text);
+    return cut >= 0 ? text.slice(0, cut).trim() : text;
+  } finally {
+    signal.removeEventListener("abort", abort);
+  }
+}
+
 // A content script opens a port, sends one job, and receives:
 //   { stage: "source" | "translation", text }   streamed, text so far
-//   { stage: "done", noText? } | { stage: "error", error }
+//   { stage: "status", text }                    the model is starting or downloading
+//   { stage: "done", text?, noText? } | { stage: "error", error }
+// Jobs: { type: "text", text, markers? } (markers: a page block, see content.js)
+//       { type: "image", dataUrl?, src }
 async function runJob(job, post, signal) {
   const settings = await getSettings();
   if (!settings.enabled) throw new Error("AegisTranslate is turned off.");
   const engine = ENGINES[settings.engine];
+  // Model start-up and download progress (local helper), shown in the card.
+  const onStatus = (text) => post({ stage: "status", text });
 
   const translate = async (text) => {
     const spec = await ensureLoaded(settings, "text");
-    const messages = translationMessages(text, settings.targetLang);
-    return engine.chatText(spec, messages, {
+    const messages = translationMessages(text, settings.targetLang, { markers: !!job.markers });
+    return guarded(
+      (sig, onPartial) => engine.chatText(spec, messages, { signal: sig, onPartial, onStatus }),
       signal,
-      onPartial: (t) => post({ stage: "translation", text: cleanOutput(t) }),
-    });
+      (text) => post({ stage: "translation", text })
+    );
   };
 
   try {
+    let translation;
     if (job.type === "text") {
-      await serial(() => translate(job.text));
+      translation = await serial(() => translate(job.text));
     } else if (job.type === "image") {
       if (!settings.visionEnabled) throw new Error("Image translation is turned off.");
       const blob = await imageBlob(job, settings.maxImageSide);
-      const source = cleanOutput(
-        await serial(async () => {
-          const spec = await ensureLoaded(settings, "vision");
-          return engine.readImage(spec, blob, READ_IMAGE_PROMPT, {
-            signal,
-            onPartial: (t) => {
-              const text = cleanOutput(t);
-              if (!NO_TEXT.startsWith(text)) post({ stage: "source", text });
-            },
-          });
-        })
-      );
+      const source = await serial(async () => {
+        const spec = await ensureLoaded(settings, "vision");
+        return guarded(
+          (sig, onPartial) => engine.readImage(spec, blob, READ_IMAGE_PROMPT, { signal: sig, onPartial, onStatus }),
+          signal,
+          (text) => {
+            if (!NO_TEXT.startsWith(text)) post({ stage: "source", text });
+          }
+        );
+      });
       if (signal.aborted) return;
       if (!source || source.includes(NO_TEXT)) return post({ stage: "done", noText: true });
       post({ stage: "source", text: source });
-      await serial(() => translate(source));
+      translation = await serial(() => translate(source));
     }
-    post({ stage: "done" });
+    if (signal.aborted) return;
+    post({ stage: "done", text: translation });
   } finally {
     afterRequest(settings);
   }
@@ -232,19 +261,22 @@ browser.storage.onChanged.addListener((changes) => {
   }
 });
 
-// --- Context menus & shortcut --------------------------------------------------
+// --- Context menus & shortcuts -------------------------------------------------
 browser.menus.create({ id: "aegis-text", title: "Translate selection", contexts: ["selection"] });
 browser.menus.create({ id: "aegis-image", title: "Translate text in image", contexts: ["image"] });
+browser.menus.create({ id: "aegis-page", title: "Translate page", contexts: ["page"] });
 
 browser.menus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "aegis-text") browser.tabs.sendMessage(tab.id, { type: "runSelection" });
   if (info.menuItemId === "aegis-image") browser.tabs.sendMessage(tab.id, { type: "runImage", src: info.srcUrl });
+  if (info.menuItemId === "aegis-page") browser.tabs.sendMessage(tab.id, { type: "togglePage" });
 });
 
+const COMMANDS = { "translate-selection": "runSelection", "translate-page": "togglePage" };
 browser.commands.onCommand.addListener(async (command) => {
-  if (command !== "translate-selection") return;
+  if (!COMMANDS[command]) return;
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (tab) browser.tabs.sendMessage(tab.id, { type: "runSelection" });
+  if (tab) browser.tabs.sendMessage(tab.id, { type: COMMANDS[command] });
 });
 
 browserEngine.detectDevice().then((d) => {

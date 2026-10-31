@@ -142,6 +142,88 @@ def pick_device(devices, configured):
     return max(gpus, key=lambda d: (not is_integrated(d), d["total_mib"]), default=None)
 
 
+# --- Model downloads ----------------------------------------------------------
+
+
+def hf_cache_dir():
+    """Where llama.cpp's -hf stores models (the Hugging Face hub cache)."""
+    if os.environ.get("HF_HUB_CACHE"):
+        return os.environ["HF_HUB_CACHE"]
+    home = os.environ.get("HF_HOME") or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "huggingface"
+    )
+    return os.path.join(home, "hub")
+
+
+IN_PROGRESS = ".downloadInProgress"
+
+
+class DownloadWatch:
+    """Reports the progress of llama-server's -hf download.
+
+    llama-server prints no progress when it isn't writing to a terminal, so a
+    multi-gigabyte download would look stuck. It downloads into the Hugging Face
+    cache as blobs/<sha256>.downloadInProgress; Hugging Face's file list gives
+    each file's sha256 and size, which makes the total exact.
+    """
+
+    def __init__(self, model, on_status, sizes_url="https://huggingface.co/api/models/{repo}/tree/main"):
+        self.repo = model.split(":")[0]
+        self.blobs = os.path.join(hf_cache_dir(), "models--" + self.repo.replace("/", "--"), "blobs")
+        self.on_status = on_status
+        self.sizes_url = sizes_url.format(repo=self.repo)
+        self.sizes = None
+        self.seen = set()
+        self.finished = False
+        self._stop = threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _file_sizes(self):
+        if self.sizes is None:
+            try:
+                with urllib.request.urlopen(self.sizes_url, timeout=10) as r:
+                    self.sizes = {f["lfs"]["oid"]: f["lfs"]["size"] for f in json.load(r) if f.get("lfs")}
+            except (OSError, ValueError, KeyError, TypeError) as e:
+                log("could not get file sizes:", e)
+                self.sizes = {}
+        return self.sizes
+
+    def poll(self):
+        try:
+            names = os.listdir(self.blobs)
+        except OSError:
+            return
+        active = {n[: -len(IN_PROGRESS)] for n in names if n.endswith(IN_PROGRESS)}
+        if not active and not self.seen:
+            return  # nothing to download, or it hasn't started yet
+        self.seen |= active
+        if not active:
+            if not self.finished:
+                self.finished = True
+                self.on_status("Download complete. Loading into GPU memory…")
+            return
+        loaded = 0
+        for oid in self.seen:
+            for name in (oid + IN_PROGRESS, oid):
+                try:
+                    loaded += os.path.getsize(os.path.join(self.blobs, name))
+                    break
+                except OSError:
+                    pass
+        sizes = self._file_sizes()
+        total = sum(sizes[o] for o in self.seen) if all(o in sizes for o in self.seen) else 0
+        gb = lambda b: f"{b / 1e9:.2f}"
+        text = f"Downloading… {gb(loaded)} of {gb(total)} GB" if total else f"Downloading… {gb(loaded)} GB"
+        self.on_status(text, loaded=loaded, total=total)
+
+    def _run(self):
+        while not self._stop.wait(1):
+            self.poll()
+
+    def stop(self):
+        self._stop.set()
+
+
 # --- llama-server processes ---------------------------------------------------
 
 
@@ -226,7 +308,6 @@ class Server:
             errors="replace",
             preexec_fn=_die_with_parent if sys.platform.startswith("linux") else None,
         )
-        self._on_status = on_status
         threading.Thread(target=self._pump_stderr, daemon=True).start()
 
     @staticmethod
@@ -236,16 +317,11 @@ class Server:
             return s.getsockname()[1]
 
     def _pump_stderr(self):
-        last_sent = 0.0
+        # Kept for error messages and the Browser Console; progress comes from DownloadWatch.
         for line in self.proc.stderr:
             line = line.strip()
-            if not line:
-                continue
-            self.tail = (self.tail + [line])[-20:]
-            now = time.monotonic()
-            if now - last_sent > 0.5:
-                last_sent = now
-                self._on_status(line[:200])
+            if line:
+                self.tail = (self.tail + [line])[-20:]
 
     def wait_ready(self):
         url = f"http://127.0.0.1:{self.port}/health"
@@ -341,11 +417,14 @@ class Engine:
     def _start(self, kind, model, on_status):
         on_status(f"Starting {model} on {self.device['description'] if self.device else 'default device'}…")
         server = Server(self.llama_server, model, self.device, self.config, on_status)
+        watch = DownloadWatch(model, on_status)
         try:
             server.wait_ready()
         except ServerError:
             server.stop()
             raise
+        finally:
+            watch.stop()
         self.servers[kind] = server
         return server
 
@@ -364,8 +443,8 @@ def handle(engine, msg):
     rid = msg.get("id")
     kind = msg.get("kind")
 
-    def status(text):
-        send({"id": rid, "type": "status", "text": text})
+    def status(text, **extra):
+        send({"id": rid, "type": "status", "text": text, **extra})
 
     try:
         if msg["type"] == "hello":

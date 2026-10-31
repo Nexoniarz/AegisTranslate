@@ -1,8 +1,11 @@
-// Content script: the Translate button on images and the result cards.
-// All UI lives in a closed shadow root, and text is inserted with textContent only.
+// Content script: the Translate button on images, the result cards, and
+// whole-page translation. All UI lives in a closed shadow root, and text is
+// inserted with textContent or text-node data only, never as HTML.
+import { marker } from "./prompts.js";
+
 (() => {
   const MIN_IMAGE_SIZE = 120;
-  let settings = { enabled: false, visionEnabled: false, hoverChip: true, showOriginal: true };
+  let settings = { enabled: false, visionEnabled: false, hoverChip: true, showOriginal: true, targetLang: "English" };
   let host, root, chip, chipTarget = null;
 
   browser.storage.local.get(settings).then((s) => Object.assign(settings, s));
@@ -31,6 +34,7 @@
   }
 
   function teardown() {
+    stopPage();
     host?.remove();
     host = root = chip = chipTarget = null;
   }
@@ -71,6 +75,8 @@
     const sections = {};
     const placeholder = el("div", "aegis-placeholder");
     for (let i = 0; i < 3; i++) placeholder.append(el("div", "nv-skeleton nv-skeleton--text"));
+    const statusLine = el("p", "nv-caption nv-text-tertiary");
+    placeholder.append(statusLine);
     body.append(placeholder);
     card.append(head, body);
 
@@ -115,7 +121,9 @@
     };
 
     port.onMessage.addListener((msg) => {
-      if (msg.stage === "source" || msg.stage === "translation") {
+      if (msg.stage === "status") {
+        statusLine.textContent = msg.text;
+      } else if (msg.stage === "source" || msg.stage === "translation") {
         section(msg.stage).text.textContent = msg.text;
       } else if (msg.stage === "done") {
         if (msg.noText) body.append(el("p", "nv-body nv-text-secondary", "No text found in this image."));
@@ -193,8 +201,259 @@
     { passive: true }
   );
 
+  // --- Whole page ------------------------------------------------------------
+  // Translates the page in place, one block (paragraph, heading, list item…) per
+  // request: what is on screen first, the rest as it scrolls into view, and new
+  // content as the page adds it. Original text is kept for "Show original".
+  const SKIP_TAGS = new Set([
+    "SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "CODE", "PRE", "KBD", "SAMP", "VAR", "TEXTAREA",
+    "INPUT", "SELECT", "OPTION", "SVG", "MATH", "CANVAS", "IFRAME", "AEGIS-TRANSLATE",
+  ]);
+  const MAX_UNIT_CHARS = 1500;
+  const PARALLEL = 2; // the background runs one at a time; two keep it busy
+  let page = null;
+
+  const displayCache = new WeakMap();
+  function isInline(e) {
+    let d = displayCache.get(e);
+    if (d === undefined) displayCache.set(e, (d = getComputedStyle(e).display));
+    return d.startsWith("inline") || d === "contents";
+  }
+
+  function blockOf(node) {
+    let e = node.parentElement;
+    while (e && e !== document.body && isInline(e)) e = e.parentElement;
+    return e ?? document.body;
+  }
+
+  function skippedElement(e) {
+    return (
+      SKIP_TAGS.has(e.tagName) ||
+      e.isContentEditable ||
+      e.getAttribute("translate") === "no" ||
+      e.classList.contains("notranslate")
+    );
+  }
+
+  // Finds new text under `root` and groups it into units of one block each.
+  function scan(root) {
+    for (let e = root.nodeType === 1 ? root : root.parentElement; e; e = e.parentElement) {
+      if (skippedElement(e)) return;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) =>
+        n.nodeType === 1
+          ? skippedElement(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP
+          : !page.known.has(n) && /\p{L}/u.test(n.data) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+    });
+    const byBlock = new Map();
+    if (root.nodeType === 3 && !page.known.has(root) && /\p{L}/u.test(root.data)) byBlock.set(blockOf(root), [root]);
+    for (let n; (n = walker.nextNode()); ) {
+      const block = blockOf(n);
+      if (!byBlock.has(block)) byBlock.set(block, []);
+      byBlock.get(block).push(n);
+    }
+    for (const [block, nodes] of byBlock) {
+      let unit = null, size = 0;
+      for (const n of nodes) {
+        page.known.add(n);
+        if (!unit || size + n.data.length > MAX_UNIT_CHARS) {
+          unit = { nodes: [] };
+          size = 0;
+          if (!page.units.has(block)) page.units.set(block, []);
+          page.units.get(block).push(unit);
+        }
+        unit.nodes.push(n);
+        size += n.data.length;
+      }
+      page.observer.observe(block);
+    }
+  }
+
+  function onVisible(entries) {
+    page.starting = false;
+    for (const { target, isIntersecting } of entries) {
+      if (!isIntersecting) {
+        page.visible.delete(target);
+        continue;
+      }
+      page.visible.add(target);
+      for (const unit of page.units.get(target) ?? []) {
+        if (!unit.queued) {
+          unit.queued = true;
+          unit.block = target;
+          page.queue.push(unit);
+        }
+      }
+    }
+    pump();
+  }
+
+  function pump() {
+    while (page && !page.error && page.running < PARALLEL && page.queue.length) {
+      // Prefer blocks that are on screen right now.
+      let i = page.queue.findIndex((u) => page.visible.has(u.block));
+      if (i < 0) i = 0;
+      const [unit] = page.queue.splice(i, 1);
+      page.running++;
+      translateUnit(unit).finally(() => {
+        if (!page) return;
+        page.running--;
+        renderBar();
+        pump();
+      });
+    }
+    renderBar();
+  }
+
+  function translateUnit(unit) {
+    const current = page;
+    const parts = unit.nodes.map((n) => current.original.get(n) ?? n.data);
+    unit.nodes.forEach((n, i) => current.original.set(n, parts[i]));
+    const core = parts.map((t) => t.replace(/\s+/g, " ").trim());
+    const markers = unit.nodes.length > 1;
+    const text = markers ? core.map((t, i) => marker(i + 1) + t).join(" ") : core[0];
+    return new Promise((resolve) => {
+      const port = browser.runtime.connect({ name: "aegis-job" });
+      current.ports.add(port);
+      const end = () => {
+        current.ports.delete(port);
+        port.disconnect();
+        resolve();
+      };
+      port.onMessage.addListener((msg) => {
+        if (msg.stage === "done") {
+          if (msg.text && page === current) apply(unit, parts, msg.text);
+          current.done++;
+          end();
+        } else if (msg.stage === "error") {
+          current.error = msg.error;
+          end();
+        }
+      });
+      port.onDisconnect.addListener(() => resolve());
+      port.postMessage({ type: "text", text, markers });
+    });
+  }
+
+  // Puts the translation into the unit's text nodes, keeping each node's
+  // surrounding whitespace. With several nodes (a paragraph with a link, say),
+  // the model's markers say which words go where; if it lost them, the whole
+  // translation goes into the first node.
+  function apply(unit, parts, translation) {
+    const pad = (orig, t) => (t ? orig.match(/^\s*/)[0] + t + orig.match(/\s*$/)[0] : t);
+    let texts;
+    if (unit.nodes.length === 1) {
+      texts = [translation.replace(/⟦\d+⟧/g, "").trim()];
+    } else {
+      const split = translation.split(/⟦(\d+)⟧/);
+      const pieces = new Map();
+      for (let i = 1; i < split.length; i += 2) {
+        const k = Number(split[i]);
+        pieces.set(k, ((pieces.get(k) ?? "") + " " + split[i + 1]).trim());
+      }
+      if (split[0].trim()) pieces.set(1, (split[0].trim() + " " + (pieces.get(1) ?? "")).trim());
+      const ok = unit.nodes.every((_, i) => pieces.has(i + 1));
+      texts = ok
+        ? unit.nodes.map((_, i) => pieces.get(i + 1))
+        : unit.nodes.map((_, i) => (i === 0 ? split.filter((_, j) => j % 2 === 0).join(" ").replace(/\s+/g, " ").trim() : ""));
+    }
+    unit.nodes.forEach((n, i) => {
+      const t = pad(parts[i], texts[i]);
+      page.translated.set(n, t);
+      if (page.showing === "translation") n.data = t;
+    });
+  }
+
+  function showPage(which) {
+    page.showing = which;
+    const source = which === "translation" ? page.translated : page.original;
+    for (const [n, t] of source) n.data = t;
+    renderBar();
+  }
+
+  function startPage() {
+    if (!settings.enabled) return;
+    page = {
+      units: new Map(), // block element -> units
+      known: new WeakSet(), // text nodes already in a unit
+      original: new Map(), // text node -> original text
+      translated: new Map(), // text node -> translated text
+      queue: [],
+      visible: new Set(),
+      ports: new Set(),
+      running: 0,
+      done: 0,
+      error: null,
+      showing: "translation",
+      starting: true, // until the first visibility check has queued what is on screen
+      observer: new IntersectionObserver(onVisible, { rootMargin: "100% 0px" }),
+    };
+    let pending = [];
+    let timer = null;
+    page.mutations = new MutationObserver((records) => {
+      for (const r of records) pending.push(...r.addedNodes);
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const roots = pending.filter((n) => n.isConnected && n !== host);
+        pending = [];
+        if (page) roots.forEach(scan);
+      }, 500);
+    });
+    page.mutations.observe(document.body, { childList: true, subtree: true });
+    scan(document.body);
+    renderBar();
+  }
+
+  function stopPage() {
+    if (!page) return;
+    const p = page;
+    page = null;
+    p.observer.disconnect();
+    p.mutations.disconnect();
+    for (const port of p.ports) port.disconnect();
+    for (const [n, t] of p.original) n.data = t;
+    p.bar?.wrap.remove();
+  }
+
+  function togglePage() {
+    if (!page) startPage();
+    else showPage(page.showing === "translation" ? "original" : "translation");
+  }
+
+  function renderBar() {
+    if (!page) return;
+    if (!page.bar) {
+      ensureRoot();
+      const wrap = el("div", "nv-card nv-card--floating aegis-bar");
+      wrap.setAttribute("role", "status");
+      const badge = el("span", "nv-badge nv-badge--accent");
+      badge.append(el("span", "nv-badge__dot"), el("span", null, "On-device"));
+      const label = el("span", "nv-caption nv-text-secondary aegis-bar__label");
+      const toggle = el("button", "nv-button nv-button--sm");
+      toggle.addEventListener("click", togglePage);
+      const close = el("button", "nv-button nv-button--ghost nv-button--icon nv-button--sm", "×");
+      close.setAttribute("aria-label", "Stop and show the original page");
+      close.title = "Stop and show the original page";
+      close.addEventListener("click", stopPage);
+      wrap.append(badge, label, toggle, close);
+      root.append(wrap);
+      page.bar = { wrap, label, toggle };
+    }
+    const { label, toggle } = page.bar;
+    const busy = page.starting || page.running > 0 || page.queue.length > 0;
+    label.classList.toggle("nv-text-danger", !!page.error);
+    label.textContent = page.error
+      ? page.error
+      : busy
+        ? `Translating into ${settings.targetLang}… ${page.done} done`
+        : `Translated into ${settings.targetLang}`;
+    toggle.textContent = page.showing === "translation" ? "Show original" : "Show translation";
+  }
+
   browser.runtime.onMessage.addListener((msg) => {
     if (msg.type === "runSelection") runSelection();
     if (msg.type === "runImage") runImage(findImage(msg.src), msg.src);
+    if (msg.type === "togglePage") togglePage();
   });
 })();

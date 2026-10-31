@@ -45,8 +45,9 @@ processed locally, and the extension never contacts a translation server.
 | 🔒 **Local only** | Inference runs on your hardware. The only network requests are model downloads you start yourself. |
 | 🖼️ **Text in any image** | Hover an image and click **Translate**. You get the text found in the image and its translation. |
 | 📝 **Selected text** | Right-click → *Translate selection*, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>. |
+| 📄 **Whole page** | Right-click → *Translate page*, the popup button, or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>. Translated in place, what's on screen first, with *Show original* one click away. |
 | ⚡ **Two engines** | *In browser* needs no install. *Local helper* runs llama.cpp on your most powerful GPU, for example the dedicated card in a hybrid laptop or desktop. |
-| 🌊 **Streaming** | Translations appear word by word, with a timer. Closing the card stops the work. |
+| 🌊 **Streaming** | Translations appear word by word, with a timer. Closing the card stops the work. If a model gets stuck repeating itself, it is stopped and the repetition is cut. |
 | 🔌 **Off when you want** | One switch turns it off and frees VRAM immediately. |
 | 🛡️ **Injection-aware** | Page content is treated strictly as data, and the model has no tools or network to misuse. |
 
@@ -266,7 +267,7 @@ assets/           logo and screenshots
 - [x] Model download, load, unload and delete from the popup
 - [x] Local helper engine (llama.cpp on the best GPU)
 - [x] Streaming results and cancel on close
-- [ ] Translate the whole page
+- [x] Translate the whole page
 - [ ] Verify downloaded model files against pinned checksums
 - [ ] Import model files from disk (no network at all)
 - [ ] Publish on addons.mozilla.org

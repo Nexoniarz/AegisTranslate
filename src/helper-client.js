@@ -13,7 +13,7 @@ export const state = {
   status: "idle", // idle | connecting | ready | missing | error
   info: null, // last hello/load result: { device, devices, llama_server, loaded, version }
   error: null,
-  progress: { text: null, vision: null }, // last status line while a model loads
+  progress: { text: null, vision: null }, // { text, loaded?, total? } while a model starts or downloads
 };
 
 let onChange = () => {};
@@ -118,12 +118,12 @@ export async function hello() {
 }
 
 export async function load(kind, spec) {
-  state.progress[kind] = "Starting…";
+  state.progress[kind] = { text: "Starting…" };
   onChange();
   try {
     return await request({ type: "load", kind, model: spec.hf }, (event) => {
       if (event.type === "status") {
-        state.progress[kind] = event.text;
+        state.progress[kind] = { text: event.text, loaded: event.loaded, total: event.total };
         onChange();
       }
     }).done;
@@ -137,14 +137,15 @@ export async function unload(kind) {
   if (port) await request({ type: "unload", kind }).done;
 }
 
-async function chat(kind, spec, payload, { onPartial, signal }) {
+async function chat(kind, spec, payload, { onPartial, onStatus, signal }) {
   let text = "";
   const { id, done } = request({ type: "chat", kind, model: spec.hf, payload }, (event) => {
     if (event.type === "token") {
       text += event.text;
       onPartial(text);
     } else if (event.type === "status") {
-      state.progress[kind] = event.text;
+      state.progress[kind] = { text: event.text, loaded: event.loaded, total: event.total };
+      onStatus?.(event.text);
       onChange();
     }
   });

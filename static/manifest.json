@@ -59,6 +59,12 @@
         "default": "Alt+Shift+T"
       },
       "description": "Translate the selected text"
+    },
+    "translate-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "Translate the whole page, or show the original again"
     }
   },
   "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

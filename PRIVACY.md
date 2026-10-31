@@ -31,7 +31,8 @@ program on your computer (`nativeMessaging`). Firefox then starts the helper whe
 something and passes text and images to it through a pipe (stdin/stdout). The helper runs
 llama.cpp's `llama-server` bound to `127.0.0.1`, which is reachable only from your own machine,
 and stops it when Firefox disconnects. The helper sends nothing over the network except the
-model downloads described above.
+model downloads described above. While a download is running, it also asks Hugging Face for
+the list of the model's files and their sizes, to show download progress.
 
 ## Data stored on your device
 

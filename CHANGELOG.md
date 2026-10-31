@@ -7,11 +7,23 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- Small vision models could get stuck repeating the same words on dense images (comic pages)
+  until the token limit, which also made image translation slow. Generation is now stopped as
+  soon as the output loops, and the repetition is cut. The image prompt also explains how to read
+  vertical text.
+- The popup showed raw llama-server log lines while a model started.
 - The local helper picked the integrated GPU on desktops and laptops with an AMD or Intel APU,
   because integrated GPUs report shared system RAM (for example 25 GB for a Radeon Vega 8 next
   to an 8 GB RTX 3060 Ti). Dedicated GPUs are now preferred, and software renderers are skipped.
 
 ### Added
+- **Whole-page translation**: right-click → *Translate page*, a button in the popup, or
+  `Alt+Shift+P`. The page is translated in place, block by block, starting with what's on screen
+  and continuing as you scroll; content the page adds later is translated too. Links and
+  formatting keep their translated words, code and `translate="no"` are skipped, and *Show
+  original* restores the page.
+- Download progress for the local helper, in the popup (with a progress bar) and in the result
+  card. llama-server prints none when it isn't on a terminal, so large downloads looked stuck.
 - NixOS guide (`docs/NIXOS.md`): configuration.nix, flakes, Home Manager, CUDA, hybrid graphics
   and troubleshooting.
 - `npm run package:source` makes the source archive for addons.mozilla.org review.
